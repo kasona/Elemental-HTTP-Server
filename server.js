@@ -22,9 +22,11 @@ var server = http.createServer(function(request, response) {
     fs.readFile('./public' + browserUrl.path, function(err, data) {
       if (err) {
         // go to 404 ERRRRR
-        fs.readFile('./public/404.html');
+        return fs.readFile('./public/404.html', function(err, data) {
+          response.end(data.toString());
+        });
       }
-      response.end(data.toString());
+      return response.end(data.toString());
     });
   });
 
