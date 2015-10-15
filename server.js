@@ -7,7 +7,7 @@ var url = require('url');
 
 // Creating a server
 var server = http.createServer(function(request, response) {
-
+  console.log('Server Start!');
   // Data Buffer
   var dataBuffer = '';
   request.on('data', function(data) {
@@ -16,107 +16,114 @@ var server = http.createServer(function(request, response) {
 
   // Parse url
   request.on('end', function() {
-    var body = 'banana';
+    var body = 'This is the body';
     var browserUrl = url.parse(request.url);
     var data = qs.parse( dataBuffer.toString() );
 
-  // =================== GET ==============================
+    // =================== GET ==============================
     if (request.method === 'GET') {
       if (request.url === '/') {
-        return fs.readFile('public/index.html', function(err, data) {
-          if (err) throw err; {
-            // Print the data to page
-            return response.end(data);
+        // fs.readFile('public/css/styles.css', function(err, data) {
+        //   if (err) throw err;
+        // });
+        fs.readFile('./public/index.html', function(err, data) {
+          if (err) {
+            throw err;
           }
+
+          // Print the data to page
+          console.log('Inside index.html', data);
+          response.writeHead(200, {
+            'Content-Type' : 'text/html'
+          });
+          // response.write(data);
+          response.end(data);
+
         });
       }
 
       // If request matches exisiting url, then read, else 404
-      if ( request.url == '/' + elementName + '.html') {
-        fs.readFile(('./public/' + elementName + '.html'), function(err, data) {
+      if ( request.url == '/' + data.elementName + '.html') {
+        fs.readFile(('./public/' + data.elementName + '.html'), function(err, data) {
           if (err) {
             return error404(request, response);
           }
           return response.end(data.toString());
         });
       }
-    } // End of get method
-  });
-
-  // =================== POST ==============================
-  //if uri is /elements create a page
-
-  if (request.uri === '/elements') {
-
-    if (request.method === 'POST') {
-      // data is in the body instead of url
-
-      // Data Buffer
-      dataBuffer = '';
-      request.on('data', function(data) {
-        dataBuffer += data;
-      });
-
-      // End and write file!
-      request.on('end', function() {
-        // Need to parse the url
-        data = qs.parse( dataBuffer.toString() );
-        // if its a newurl .. we need to parse the url
-
-        // Create a new file
-        // if file doesnt exist then write!  inside the write, write to head successful else, 404
-      }
-
-     );
-
-      // Server request body
-      // This goes somewhere in the post
-      // response.writeHead(200, {
-      //   'Content-Type' : 'application/json',
-      //   'Content-Body' : { 'success' : true }
-      // });
     }
 
-  }
-
-  // =================== FUNCTIONS ===============================
-  /*  Variables - Expected to be given
-  elementName = the Titlecased name of the element to be saved, for example "Boron"
-  elementSymbol = the element Symbol, for example: "B"
-  elementAtomicNumber = the element's atomic number, for example: 5
-  elementDescription =  a short description
-  */
-
-  // Error Page
-  function error404 (request, response) {
-    fs.readFile('./public/404.html', function(err, data) {
-        response.end(data.toString());
-      });
-  }
-
-  // Write New File
-  function writeFile (request, response) {
-    fs.writeFile('./public/' + data.elementName + '.html', elementDescription, function(err) {
-    if (err) throw new Error('Could not write to ' + data.elementName + '.html');
+    // =================== POST ==============================
+    if (request.method === 'POST') {
+      if (request.url === '/elements') {
+        // data is in the body instead of url
+        exists(request, response, data);
+        return response.end('END');
+      }
+    }
   });
-    writeNewFileContents();
-  }
-
-  // Writes contents of new file
-  function writeNewFileContents (data) {
-    return '<!DOCTYPE html>\ <html lang=\'en\'>\ <head>\ <meta charset="UTF-8">\ <title>The Elements - ' + data.elementName + '</title>\ <link rel="stylesheet" href="/css/styles.css">\ </head>\ <body> <h1>' + data.elementName + ' </h1>\ <h2>' + data.elementSymbol + '</h2> <h3>' + data.elementAtomicNumber + '</h3>\ <p>' + data.elementDescription + '</p>\ <p><a href="/">back</a></p>\ </body>\ </html>';
-  }
-
-  //Auto Update the Index / Add link to Index.html
-  // ????????? How to insert it to index.html? <script> ???? </script>
-  function addLinkToIndex () {
-    return '<li><a href="' + data.elementName + '.html">' + data.elementName + '</a></li>';
-  }
 
 });
 
-console.log('THIS IS SERVERRRRR!\n', server);
+// =================== FUNCTIONS ===============================
+/*  Variables - Expected to be given
+elementName = the Titlecased name of the element to be saved, for example "Boron"
+elementSymbol = the element Symbol, for example: "B"
+elementAtomicNumber = the element's atomic number, for example: 5
+elementDescription =  a short description
+*/
 
+// Error Page
+function error404 (request, response) {
+  fs.readFile('./public/404.html', function(err, data) {
+    response.end(data.toString());
+  });
+}
+
+// Check if file exists
+function exists(request, response, data) {
+  fs.exists('./public/' + request.url, function(exists) {
+    if (exists) {
+      fs.readFile('./public/' + data.element, function(err, data) {
+        return response.end(data.toString());
+      });
+
+    } else {
+
+      // Write, Add Content, Add to Index
+      writeFile(data);
+      writeNewFileContents(data);
+      addLinkToIndex(data);
+
+      // Write to the head, successful
+      response.writeHead(200, {
+        'Content-Type' : 'application/json',
+        'Content-Body' : { 'success' : true }
+      });
+    }
+  });
+}
+
+// Write New File
+function writeFile (data) {
+  fs.writeFile('./public/' + data.elementName + '.html', data.elementDescription, function(err, data) {
+    if (err) throw new Error('Could not write to ' + data.elementName + '.html');
+  });
+  writeNewFileContents(data);
+}
+
+// Writes contents of new file
+function writeNewFileContents (data) {
+  return '<!DOCTYPE html>\ <html lang=\'en\'>\ <head>\ <meta charset="UTF-8">\ <title>The Elements - ' + data.elementName + '</title>\ <link rel="stylesheet" href="/css/styles.css">\ </head>\ <body> <h1>' + data.elementName + ' </h1>\ <h2>' + data.elementSymbol + '</h2> <h3>' + data.elementAtomicNumber + '</h3>\ <p>' + data.elementDescription + '</p>\ <p><a href="/">back</a></p>\ </body>\ </html>';
+}
+
+//Auto Update the Index / Add link to Index.html
+// ????????? How to insert it to index.html? <script> ???? </script>
+function addLinkToIndex (data) {
+  return '<li><a href="' + data.elementName + '.html">' + data.elementName + '</a></li>';
+}
+
+console.log('THIS IS SERVERRRRR!\n', server);
 
 
 
