@@ -8,6 +8,7 @@ var url = require('url');
 // Creating a server
 var server = http.createServer(function(request, response) {
   console.log('Server Start!');
+
   // Data Buffer
   var dataBuffer = '';
   request.on('data', function(data) {
@@ -17,7 +18,6 @@ var server = http.createServer(function(request, response) {
   // Parse url
   request.on('end', function() {
     var body = 'This is the body';
-    var browserUrl = url.parse(request.url);
     var requestBody = qs.parse( dataBuffer.toString() );
 
     // =================== GET ==============================
@@ -66,16 +66,24 @@ var server = http.createServer(function(request, response) {
     }
   });
 
-});
+  // ==================== PUT ===================================
 
-// ==================== PUT ===================================
+  if (request.method === 'PUT') {
+    fs.writeFile('./public/' + data.elementName + '.html', function(err) {
+      failUpdate(data);
+    });
+    successUpdate(data);
+  }
 
-if (request.method === 'PUT') {
-  fs.writeFile('./public/' + data.elementName + '.html', function(err) {
-    failUpdate(data);
+  // ================= DELETE ===========================
+  if (request.method === 'DELETE') {
+    fs.unlink('/public/' + request.url, function (err) {
+    if (err) throw err;
+    console.log('successfulyy deleted', request.url);
   });
-  return successUpdate(data);
-}
+  }
+
+}); // End of server
 
 // =================== FUNCTIONS ===============================
 /*  Variables - Expected to be given
@@ -104,6 +112,7 @@ function exists(request, response, data) {
 
       // Write, Add Content, Add to Index
       writeFile(data);
+
       // Need to render
       addLinkToIndex(data);
 
@@ -117,51 +126,45 @@ function exists(request, response, data) {
 }
 
 // ================= Render for index.html =======================
-  // fill in elements with current elements found in public folder
-  fs.readdir('./public', function(err, files) {
-    if (err) throw new Error('./public dir does not exist or is not readable' + err.message);
+fs.readdir('./public', function(err, files) {
+  if (err) throw new Error('./public dir does not exist' + err.message);
 
-    // only want html element files
-    elements = files.filter(function(file) {
-      return file.indexOf('.html') > 1 &&
-        file !== '404.html' &&
-        file !== 'index.html';
-    }).map(function(elementFileName) {
-      return elementFileName.substr(0, elementFileName.indexOf('.html'));
-    }).map(function(lowerCasedElementName) {
-      return lowerCasedElementName.substr(0, 1).toUpperCase() + lowerCasedElementName.substr(1);
-    });
+  // Only want html files, dont touch 404 and index.html
+  elements = files.filter(function(file) {
+    return file.indexOf('.html') > 1 &&
+      file !== '404.html' &&
+      file !== 'index.html';
 
-    //elements array is initialized
-    //write our rendered index.html
-    writeIndex();
+  // getting the .htmls
+  }).map(function(elementFileName) {
+    return elementFileName.substr(0, elementFileName.indexOf('.html'));
+  }).map(function(lowerCase) {
+    // Changing them to lowercase
+    return lowerCase.substr(0, 1).toUpperCase() + lowerCase.substr(1);
   });
+  updateIndex();
+});
 
-  // to update the index
-function writeIndex() {
-    //get template
-    fs.readFile('template.html', function(err, template) {
-      if (err) throw new Error('template.html does not exist or is not readable.  This file is required by application.', err.message);
+function updateIndex() {
+  fs.readFile('./template.html', function(err, template) {
+    if (err) throw new Error('could not write to template.html' + err.message);
 
-      // render list of links for each element
-      // into the template {{ listOfElements}}
-      var renderedList = elements.map(function(element) {
-        return ' <li>' +
-                  '<a href="{{ filePatn }}">' +
-                    '{{ elementName }} ' +
-                  '</a>' +
-                '</li>'.replace('{{ filePatn }}', element.toLowerCase() + ".html")
-                .replace("{{ elementName }} ", element);
-      });
-      var rendered = template.toString().replace("{{ listOfElements }}", renderedList.join('\n'));
-
-      // update the index.html
-      fs.writeFile('./public/index.html', rendered, function(err) {
-        if (err) throw new Error("./public/index.html is not writeable and is required by this application", err.message);
-
-      });
+    // Creating new li section in body
+    var li = elements.map(function(elementName) {
+      var newPath = ('/' + elementName.toLowerCase() + '.html');
+      var newli = ('<li> <a href=' + newPath + '>' + elementName + '</a> </li>');
+      return newli;
     });
-  }
+
+    // Replacing the {{ listOfElements }} in the html section with my li section
+    var render = template.toString().replace('{{ listOfElements }}', li.join('\n'));
+
+    // Write the new file / Replace the entire file
+    fs.writeFile('./public/index.html', render, function(err) {
+    if (err) throw new Error('could not write to ./public/index.html', err.message);
+  });
+  });
+}
 
 // ==========================================
 // Write New File
@@ -202,12 +205,12 @@ function successUpdate () {
 }
 
 // ============ DELETE functions ===============
-if (request.method === 'DELETE') {
-  fs.unlink('/public/' + request.url, function (err) {
-    if (err) throw err;
-    console.log('successfulyy deleted', request.url);
-  });
-}
+// function unlink() {
+//   fs.unlink('/public/' + request.url, function (err) {
+//     if (err) throw err;
+//     console.log('successfulyy deleted', request.url);
+//   });
+// }
 
 //Server listens for the port
 server.listen(PORT, function() {
