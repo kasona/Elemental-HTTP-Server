@@ -18,7 +18,7 @@ var server = http.createServer(function(request, response) {
   request.on('end', function() {
     var body = 'This is the body';
     var browserUrl = url.parse(request.url);
-    var data = qs.parse( dataBuffer.toString() );
+    var requestBody = qs.parse( dataBuffer.toString() );
 
     // =================== GET ==============================
     if (request.method === 'GET') {
@@ -44,8 +44,8 @@ var server = http.createServer(function(request, response) {
       }
 
       // If request matches exisiting url, then read, else 404
-      if ( request.url == '/' + data.elementName + '.html') {
-        fs.readFile(('./public' + data.elementName + '.html'), function(err, data) {
+      if ( request.url == '/' + requestBody.elementName + '.html') {
+        fs.readFile(('./public' + requestBody.elementName + '.html'), function(err, data) {
           if (err) {
             return error404(request, response);
           }
@@ -56,15 +56,26 @@ var server = http.createServer(function(request, response) {
 
     // =================== POST ==============================
     if (request.method === 'POST') {
+
       if (request.url === '/elements') {
         // data is in the body instead of url
-        exists(request, response, data);
+        console.log(requestBody.elementName);
+        exists(request, response, requestBody);
         return response.end('END');
       }
     }
   });
 
 });
+
+// ==================== PUT ===================================
+
+if (request.method === 'PUT') {
+  fs.writeFile('./public/' + data.elementName + '.html', function(err) {
+    failUpdate(data);
+  });
+  return successUpdate(data);
+}
 
 // =================== FUNCTIONS ===============================
 /*  Variables - Expected to be given
@@ -74,7 +85,6 @@ elementAtomicNumber = the element's atomic number, for example: 5
 elementDescription =  a short description
 */
 
-// =============== GET functions =====================
 // Error Page
 function error404 (request, response) {
   fs.readFile('./public/404.html', function(err, data) {
@@ -82,12 +92,11 @@ function error404 (request, response) {
   });
 }
 
-// ================ POST functions  ===================
 // Check if file exists
 function exists(request, response, data) {
-  fs.exists('./public/' + request.url, function(exists) {
+  fs.exists('./public' + request.url, function(exists) {
     if (exists) {
-      fs.readFile('./public/' + data.element, function(err, data) {
+      fs.readFile('./public' + data.element, function(err, data) {
         return response.end(data.toString());
       });
 
@@ -95,7 +104,7 @@ function exists(request, response, data) {
 
       // Write, Add Content, Add to Index
       writeFile(data);
-      writeNewFileContents(data);
+      // Need to render
       addLinkToIndex(data);
 
       // Write to the head, successful
@@ -107,12 +116,60 @@ function exists(request, response, data) {
   });
 }
 
+// ================= Render for index.html =======================
+  // fill in elements with current elements found in public folder
+  fs.readdir('./public', function(err, files) {
+    if (err) throw new Error('./public dir does not exist or is not readable' + err.message);
+
+    // only want html element files
+    elements = files.filter(function(file) {
+      return file.indexOf('.html') > 1 &&
+        file !== '404.html' &&
+        file !== 'index.html';
+    }).map(function(elementFileName) {
+      return elementFileName.substr(0, elementFileName.indexOf('.html'));
+    }).map(function(lowerCasedElementName) {
+      return lowerCasedElementName.substr(0, 1).toUpperCase() + lowerCasedElementName.substr(1);
+    });
+
+    //elements array is initialized
+    //write our rendered index.html
+    writeIndex();
+  });
+
+  // to update the index
+function writeIndex() {
+    //get template
+    fs.readFile('template.html', function(err, template) {
+      if (err) throw new Error('template.html does not exist or is not readable.  This file is required by application.', err.message);
+
+      // render list of links for each element
+      // into the template {{ listOfElements}}
+      var renderedList = elements.map(function(element) {
+        return ' <li>' +
+                  '<a href="{{ filePatn }}">' +
+                    '{{ elementName }} ' +
+                  '</a>' +
+                '</li>'.replace('{{ filePatn }}', element.toLowerCase() + ".html")
+                .replace("{{ elementName }} ", element);
+      });
+      var rendered = template.toString().replace("{{ listOfElements }}", renderedList.join('\n'));
+
+      // update the index.html
+      fs.writeFile('./public/index.html', rendered, function(err) {
+        if (err) throw new Error("./public/index.html is not writeable and is required by this application", err.message);
+
+      });
+    });
+  }
+
+// ==========================================
 // Write New File
 function writeFile (data) {
-  fs.writeFile('./public/' + data.elementName + '.html', data.elementDescription, function(err, data) {
+  // writeFile( arguments )
+  fs.writeFile('./public/' + data.elementName + '.html',  writeNewFileContents(data), function(err, data) {
     if (err) throw new Error('Could not write to ' + data.elementName + '.html');
   });
-  writeNewFileContents(data);
 }
 
 // Writes contents of new file
@@ -129,17 +186,28 @@ function addLinkToIndex (data) {
 // ============ PUT functions ==================
 
 // If requested path to update does not exist
-// response.writeHead(500, {
-//         'Content-Type' : 'application/json',
-//         'Content-Body' : { 'error' : 'resource' + elementName + 'does not exist' }
-//       });
+function failUpdate (data) {
+  response.writeHead(500, {
+    'Content-Type' : 'application/json',
+    'Content-Body' : { 'error' : 'resource' + data.elementName + 'does not exist' }
+  });
+}
 
-// // If requested update successfully
-// response.writeHead(200, {
-//         'Content-Type' : 'application/json',
-//         'Content-Body' : { 'success' : true }
-//       });
+// If requested update successfully
+function successUpdate () {
+  response.writeHead(200, {
+    'Content-Type' : 'application/json',
+    'Content-Body' : { 'success' : true }
+  });
+}
 
+// ============ DELETE functions ===============
+if (request.method === 'DELETE') {
+  fs.unlink('/public/' + request.url, function (err) {
+    if (err) throw err;
+    console.log('successfulyy deleted', request.url);
+  });
+}
 
 //Server listens for the port
 server.listen(PORT, function() {
