@@ -22,29 +22,30 @@ var server = http.createServer(function(request, response) {
 
     // =================== GET ==============================
     if (request.method === 'GET') {
+      console.log(request.url);
       if (request.url === '/') {
-        // fs.readFile('public/css/styles.css', function(err, data) {
-        //   if (err) throw err;
-        // });
         fs.readFile('./public/index.html', function(err, data) {
           if (err) {
+            error404(request, response);
             throw err;
           }
+          response.end(data.toString());
+        });
+      }
 
-          // Print the data to page
-          console.log('Inside index.html', data);
-          response.writeHead(200, {
-            'Content-Type' : 'text/html'
-          });
-          // response.write(data);
-          response.end(data);
-
+      // catch all request and end
+      else {
+        fs.readFile('./public' + request.url, function(err, data) {
+          if (err) {
+            return error404(request, response);
+          }
+          response.end(data.toString());
         });
       }
 
       // If request matches exisiting url, then read, else 404
       if ( request.url == '/' + data.elementName + '.html') {
-        fs.readFile(('./public/' + data.elementName + '.html'), function(err, data) {
+        fs.readFile(('./public' + data.elementName + '.html'), function(err, data) {
           if (err) {
             return error404(request, response);
           }
@@ -73,6 +74,7 @@ elementAtomicNumber = the element's atomic number, for example: 5
 elementDescription =  a short description
 */
 
+// =============== GET functions =====================
 // Error Page
 function error404 (request, response) {
   fs.readFile('./public/404.html', function(err, data) {
@@ -80,6 +82,7 @@ function error404 (request, response) {
   });
 }
 
+// ================ POST functions  ===================
 // Check if file exists
 function exists(request, response, data) {
   fs.exists('./public/' + request.url, function(exists) {
@@ -123,9 +126,19 @@ function addLinkToIndex (data) {
   return '<li><a href="' + data.elementName + '.html">' + data.elementName + '</a></li>';
 }
 
-console.log('THIS IS SERVERRRRR!\n', server);
+// ============ PUT functions ==================
 
+// If requested path to update does not exist
+// response.writeHead(500, {
+//         'Content-Type' : 'application/json',
+//         'Content-Body' : { 'error' : 'resource' + elementName + 'does not exist' }
+//       });
 
+// // If requested update successfully
+// response.writeHead(200, {
+//         'Content-Type' : 'application/json',
+//         'Content-Body' : { 'success' : true }
+//       });
 
 
 //Server listens for the port
