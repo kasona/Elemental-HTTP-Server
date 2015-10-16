@@ -19,7 +19,6 @@ var server = http.createServer(function(request, response) {
   request.on('end', function() {
     var body = 'This is the body';
     var requestBody = qs.parse( dataBuffer.toString() );
-    console.log('requestBody', requestBody);
 
     // =================== GET ==============================
     if (request.method === 'GET') {
@@ -77,7 +76,6 @@ var server = http.createServer(function(request, response) {
             });
           });
         } else {
-          console.log('in else', exists);
           return response.writeHead(500, {
           'Content-Type' : 'application/json',
           'Content-Body' : { 'error' : 'resource ' + request.url + ' does not exist' }
@@ -90,13 +88,13 @@ var server = http.createServer(function(request, response) {
     if (request.method === 'DELETE') {
       fs.exists('./public' + request.url, function(exists) {
       if (exists) {
-        fs.unlink('/public/' + request.url, function (err) {
-        return response.writeHead(200, {
-        'Content-Type' : 'application/json',
-        'Content-Body' : { 'success' : true }
-      });
-        if (err) throw err;
-      });
+        fs.unlink('./public' + request.url, function (err) {
+          if (err) throw err;
+          return response.writeHead(200, {
+            'Content-Type' : 'application/json',
+            'Content-Body' : { 'success' : true }
+          });
+        });
       } else {
         return response.writeHead(500, {
           'Content-Type' : 'application/json',
