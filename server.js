@@ -19,6 +19,7 @@ var server = http.createServer(function(request, response) {
   request.on('end', function() {
     var body = 'This is the body';
     var requestBody = qs.parse( dataBuffer.toString() );
+    console.log('requestBody', requestBody);
 
     // =================== GET ==============================
     if (request.method === 'GET') {
@@ -59,39 +60,56 @@ var server = http.createServer(function(request, response) {
 
       if (request.url === '/elements') {
         // data is in the body instead of url
-        console.log(requestBody.elementName);
         exists(request, response, requestBody);
         return response.end('END');
       }
     }
-  });
 
-  // ==================== PUT ===================================
+    // ==================== PUT ===================================
+    // PUT edits the file, aka replaces ( writes over current )
+    if (request.method === 'PUT') {
+      fs.exists('./public' + request.url, function(exists) {
+        if (exists) {
+          fs.writeFile('./public' + request.url, writeNewFileContents(requestBody), function(err) {
+            return response.writeHead(200, {
+              'Content-Type' : 'application/json',
+              'Content-Body' : { 'success' : true }
+            });
+          });
+        } else {
+          console.log('in else', exists);
+          return response.writeHead(500, {
+          'Content-Type' : 'application/json',
+          'Content-Body' : { 'error' : 'resource ' + request.url + ' does not exist' }
+        });
+        }
+      });
+    }
 
-  if (request.method === 'PUT') {
-    fs.writeFile('./public/' + data.elementName + '.html', function(err) {
-      failUpdate(data);
+    // ================= DELETE ===========================
+    if (request.method === 'DELETE') {
+      fs.exists('./public' + request.url, function(exists) {
+      if (exists) {
+        fs.unlink('/public/' + request.url, function (err) {
+        return response.writeHead(200, {
+        'Content-Type' : 'application/json',
+        'Content-Body' : { 'success' : true }
+      });
+        if (err) throw err;
+      });
+      } else {
+        return response.writeHead(500, {
+          'Content-Type' : 'application/json',
+          'Content-Body' : { 'error' : 'resource ' + request.url + ' does not exist' }
+        });
+      }
     });
-    successUpdate(data);
-  }
+    }
 
-  // ================= DELETE ===========================
-  if (request.method === 'DELETE') {
-    fs.unlink('/public/' + request.url, function (err) {
-    if (err) throw err;
-    console.log('successfulyy deleted', request.url);
   });
-  }
-
 }); // End of server
 
 // =================== FUNCTIONS ===============================
-/*  Variables - Expected to be given
-elementName = the Titlecased name of the element to be saved, for example "Boron"
-elementSymbol = the element Symbol, for example: "B"
-elementAtomicNumber = the element's atomic number, for example: 5
-elementDescription =  a short description
-*/
 
 // Error Page
 function error404 (request, response) {
@@ -161,12 +179,11 @@ function updateIndex() {
 
     // Write the new file / Replace the entire file
     fs.writeFile('./public/index.html', render, function(err) {
-    if (err) throw new Error('could not write to ./public/index.html', err.message);
-  });
+      if (err) throw new Error('could not write to ./public/index.html', err.message);
+    });
   });
 }
 
-// ==========================================
 // Write New File
 function writeFile (data) {
   // writeFile( arguments )
